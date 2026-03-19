@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamZone — Live TV</title>
+
+  <!-- Google Fonts: Bebas Neue (display) + Outfit (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ══════════════════════════════════════════
+       CSS VARIABLES — Design Tokens
+    ══════════════════════════════════════════ */
+    :root {
+      --bg-void:      #080808;
+      --bg-deep:      #0f0f0f;
+      --bg-card:      #141414;
+      --bg-card-hover:#1c1c1c;
+      --border:       #222222;
+      --border-glow:  #ff6a00;
+
+      --orange:       #ff6a00;
+      --orange-bright:#ff8c00;
+      --orange-dim:   rgba(255,106,0,0.15);
+      --orange-glow:  rgba(255,106,0,0.35);
+
+      --text-primary: #f0f0f0;
+      --text-muted:   #666;
+      --text-dim:     #999;
+
+      --font-display: 'Bebas Neue', sans-serif;
+      --font-body:    'Outfit', sans-serif;
+
+      --radius:       12px;
+      --radius-sm:    8px;
+      --transition:   0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ══════════════════════════════════════════
+       RESET & BASE
+    ══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Subtle noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      background-size: 150px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ══════════════════════════════════════════
+       HEADER / HERO
+    ══════════════════════════════════════════ */
+    header {
+      position: relative;
+      padding: 40px 24px 32px;
+      text-align: center;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    /* Radial glow behind the logo */
+    header::after {
+      content: '';
+      position: absolute;
+      top: -60px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 300px;
+      background: radial-gradient(ellipse at 50% 30%, rgba(255,106,0,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    /* Animated signal icon */
+    .logo-icon {
+      width: 38px; height: 38px;
+      position: relative;
+    }
+    .logo-icon svg { width: 100%; height: 100%; }
+
+    .logo-text {
+      font-family: var(--font-display);
+      font-size: clamp(2.6rem, 6vw, 4rem);
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #fff 20%, var(--orange-bright) 70%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--orange);
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      vertical-align: middle;
+      margin-left: 6px;
+      position: relative;
+      top: -4px;
+      animation: pulse-badge 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse-badge {
+      0%,100% { box-shadow: 0 0 0 0 rgba(255,106,0,0.6); }
+      50%      { box-shadow: 0 0 0 5px rgba(255,106,0,0); }
+    }
+
+    .tagline {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ══════════════════════════════════════════
+       CONTROLS BAR
+    ══════════════════════════════════════════ */
+    .controls {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 14px 24px;
+      background: rgba(8,8,8,0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    /* Search */
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+      max-width: 380px;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: 14px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px;
+      color: var(--text-muted);
+      pointer-events: none;
+      transition: color var(--transition);
+    }
+    #searchInput {
+      width: 100%;
+      padding: 10px 14px 10px 42px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    #searchInput::placeholder { color: var(--text-muted); }
+    #searchInput:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px var(--orange-dim);
+    }
+    #searchInput:focus + svg,
+    .search-wrap:focus-within svg { color: var(--orange); }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 7px 16px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-dim);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .filter-btn:hover {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+    .filter-btn.active {
+      background: var(--orange);
+      border-color: var(--orange);
+      color: #000;
+      font-weight: 700;
+    }
+
+    /* Counter */
+    .counter {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .counter-num {
+      color: var(--orange);
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    /* ══════════════════════════════════════════
+       MAIN GRID
+    ══════════════════════════════════════════ */
+    main {
+      position: relative;
+      z-index: 1;
+      padding: 28px 24px 60px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    /* ══════════════════════════════════════════
+       CHANNEL CARD
+    ══════════════════════════════════════════ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      position: relative;
+      transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+      animation: card-in 0.35s both;
+    }
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card:hover {
+      transform: translateY(-4px) scale(1.015);
+      border-color: var(--orange);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px var(--orange-glow);
+      background: var(--bg-card-hover);
+    }
+
+    /* Top accent stripe */
+    .card::before {
+      content: '';
+      display: block;
+      height: 3px;
+      background: linear-gradient(90deg, var(--orange), var(--orange-bright), transparent);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .card:hover::before { opacity: 1; }
+
+    /* Thumbnail area */
+    .card-thumb {
+      aspect-ratio: 16/9;
+      background: var(--bg-deep);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Category color dot */
+    .card-thumb-icon {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.08);
+      transition: transform var(--transition);
+    }
+    .card:hover .card-thumb-icon { transform: scale(1.12); }
+
+    /* Category badge */
+    .cat-badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: #000;
+    }
+
+    /* LIVE dot */
+    .live-dot {
+      position: absolute;
+      top: 8px; right: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #fff;
+      background: rgba(255,30,30,0.85);
+      padding: 3px 7px;
+      border-radius: 4px;
+    }
+    .live-dot::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #fff;
+      animation: blink 1.2s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.2; }
+    }
+
+    /* Card body */
+    .card-body {
+      padding: 14px 14px 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+
+    /* Card actions */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-watch {
+      flex: 1;
+      padding: 7px 10px;
+      background: var(--orange);
+      border: none;
+      border-radius: 6px;
+      color: #000;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: background var(--transition), transform var(--transition);
+    }
+    .btn-watch:hover { background: var(--orange-bright); transform: scale(1.04); }
+
+    .btn-copy {
+      padding: 7px 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      font-family: var(--font-body);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn-copy:hover {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+    .btn-copy.copied {
+      border-color: #22c55e;
+      color: #22c55e;
+    }
+
+    /* ══════════════════════════════════════════
+       EMPTY STATE
+    ══════════════════════════════════════════ */
+    .empty {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 80px 24px;
+      color: var(--text-muted);
+      text-align: center;
+      width: 100%;
+    }
+    .empty.visible { display: flex; }
+    .empty-icon { font-size: 48px; opacity: 0.4; }
+    .empty p { font-size: 14px; }
+
+    /* ══════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════ */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 20px 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+    footer span { color: var(--orange); }
+
+    /* ══════════════════════════════════════════
+       TOAST NOTIFICATION
+    ══════════════════════════════════════════ */
+    #toast {
+      position: fixed;
+      bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: #1a1a1a;
+      border: 1px solid var(--orange);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 20px;
+      border-radius: 999px;
+      z-index: 9999;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* ══════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════ */
+    @media (max-width: 640px) {
+      .controls { padding: 10px 16px; gap: 8px; }
+      main { padding: 20px 16px 48px; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+      .counter { display: none; }
+      .search-wrap { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════
+     HEADER
+═══════════════════════════════ -->
+<header>
+  <div class="logo-wrap">
+    <!-- SVG signal/TV icon -->
+    <div class="logo-icon">
+      <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="12" width="26" height="18" rx="3" stroke="#ff6a00" stroke-width="2"/>
+        <path d="M14 12L19 7L24 12" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="15" y1="30" x2="13" y2="34" stroke="#ff6a00" stroke-width="2" stroke-linecap="round"/>
+        <line x1="23" y1="30" x2="25" y2="34" stroke="#ff6a00" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="19" cy="21" r="4" fill="#ff6a00" opacity="0.9"/>
+        <circle cx="19" cy="21" r="2" fill="#fff" opacity="0.5"/>
+      </svg>
+    </div>
+    <span class="logo-text">StreamZone</span>
+    <span class="logo-badge">● LIVE</span>
+  </div>
+  <p class="tagline">Votre portail IPTV — Streaming mondial 24/7</p>
+</header>
+
+<!-- ═══════════════════════════════
+     CONTROLS (sticky)
+═══════════════════════════════ -->
+<div class="controls">
+
+  <!-- Search input -->
+  <div class="search-wrap">
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="Rechercher une chaîne..."
+      autocomplete="off"
+    />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+  </div>
+
+  <!-- Category filters (generated by JS) -->
+  <div class="filters" id="filters"></div>
+
+  <!-- Channel counter -->
+  <div class="counter">
+    <span class="counter-num" id="countNum">0</span> chaînes
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════
+     MAIN GRID
+═══════════════════════════════ -->
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="emptyState">
+    <div class="empty-icon">📡</div>
+    <p>Aucune chaîne trouvée pour "<strong id="emptyQuery"></strong>"</p>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════
+     FOOTER
+═══════════════════════════════ -->
+<footer>
+  Made with ❤️ by <span>StreamZone</span> — Pour usage personnel uniquement
+</footer>
+
+<!-- Toast notification -->
+<div id="toast">✓ Lien copié !</div>
+
+<!-- ═══════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════ -->
+<script>
+  /* ─────────────────────────────────────────────
+     1. DONNÉES DES CHAÎNES
+     Ajoutez / modifiez / supprimez des entrées ici
+  ───────────────────────────────────────────── */
+  const chaines = [
+    // ── USA ──────────────────────────────────
+    { nom: "ABC USA",           url: "https://dlstreams.top/watch.php?id=51",  categorie: "USA" },
+    { nom: "CBS USA",           url: "https://dlstreams.top/watch.php?id=52",  categorie: "USA" },
+    { nom: "NBC USA",           url: "https://dlstreams.top/watch.php?id=53",  categorie: "USA" },
+    { nom: "FOX USA",           url: "https://dlstreams.top/watch.php?id=54",  categorie: "USA" },
+    { nom: "CNN USA",           url: "https://dlstreams.top/watch.php?id=55",  categorie: "USA" },
+    { nom: "MSNBC",             url: "https://dlstreams.top/watch.php?id=56",  categorie: "USA" },
+    // ── SPORT ────────────────────────────────
+    { nom: "ESPN USA",          url: "https://dlstreams.top/watch.php?id=44",  categorie: "Sport" },
+    { nom: "ESPN 2",            url: "https://dlstreams.top/watch.php?id=45",  categorie: "Sport" },
+    { nom: "beIN Sports 1",     url: "https://dlstreams.top/watch.php?id=60",  categorie: "Sport" },
+    { nom: "beIN Sports 2",     url: "https://dlstreams.top/watch.php?id=61",  categorie: "Sport" },
+    { nom: "beIN Sports 3",     url: "https://dlstreams.top/watch.php?id=62",  categorie: "Sport" },
+    { nom: "RMC Sport 1",       url: "https://dlstreams.top/watch.php?id=70",  categorie: "Sport" },
+    { nom: "Canal+ Sport",      url: "https://dlstreams.top/watch.php?id=71",  categorie: "Sport" },
+    { nom: "Eurosport 1",       url: "https://dlstreams.top/watch.php?id=72",  categorie: "Sport" },
+    { nom: "Sky Sports",        url: "https://dlstreams.top/watch.php?id=80",  categorie: "Sport" },
+    // ── EUROPE ───────────────────────────────
+    { nom: "TF1",               url: "https://dlstreams.top/watch.php?id=10",  categorie: "Europe" },
+    { nom: "France 2",          url: "https://dlstreams.top/watch.php?id=11",  categorie: "Europe" },
+    { nom: "M6",                url: "https://dlstreams.top/watch.php?id=12",  categorie: "Europe" },
+    { nom: "Arte",              url: "https://dlstreams.top/watch.php?id=13",  categorie: "Europe" },
+    { nom: "BBC One",           url: "https://dlstreams.top/watch.php?id=20",  categorie: "Europe" },
+    { nom: "ITV UK",            url: "https://dlstreams.top/watch.php?id=21",  categorie: "Europe" },
+    { nom: "RTL Germany",       url: "https://dlstreams.top/watch.php?id=30",  categorie: "Europe" },
+    { nom: "Rai Uno Italy",     url: "https://dlstreams.top/watch.php?id=31",  categorie: "Europe" },
+    // ── AFRIQUE ──────────────────────────────
+    { nom: "Africa 24",         url: "https://dlstreams.top/watch.php?id=90",  categorie: "Afrique" },
+    { nom: "TV5 Monde Afrique", url: "https://dlstreams.top/watch.php?id=91",  categorie: "Afrique" },
+    { nom: "Canal+ Afrique",    url: "https://dlstreams.top/watch.php?id=92",  categorie: "Afrique" },
+    { nom: "Al Jazeera FR",     url: "https://dlstreams.top/watch.php?id=93",  categorie: "Afrique" },
+    { nom: "RTI 1",             url: "https://dlstreams.top/watch.php?id=94",  categorie: "Afrique" },
+    { nom: "RFI Monde",         url: "https://dlstreams.top/watch.php?id=95",  categorie: "Afrique" },
+    // ── CINÉMA ───────────────────────────────
+    { nom: "Ciné+ Premier",     url: "https://dlstreams.top/watch.php?id=100", categorie: "Cinéma" },
+    { nom: "TCM Cinéma",        url: "https://dlstreams.top/watch.php?id=101", categorie: "Cinéma" },
+    { nom: "HBO",               url: "https://dlstreams.top/watch.php?id=102", categorie: "Cinéma" },
+    { nom: "Paramount Network", url: "https://dlstreams.top/watch.php?id=103", categorie: "Cinéma" },
+    // ── KIDS ─────────────────────────────────
+    { nom: "Cartoon Network",   url: "https://dlstreams.top/watch.php?id=110", categorie: "Kids" },
+    { nom: "Disney Channel",    url: "https://dlstreams.top/watch.php?id=111", categorie: "Kids" },
+    { nom: "Nickelodeon",       url: "https://dlstreams.top/watch.php?id=112", categorie: "Kids" },
+    { nom: "Gulli",             url: "https://dlstreams.top/watch.php?id=113", categorie: "Kids" },
+    // ── NEWS ─────────────────────────────────
+    { nom: "France 24",         url: "https://dlstreams.top/watch.php?id=120", categorie: "News" },
+    { nom: "BFMTV",             url: "https://dlstreams.top/watch.php?id=121", categorie: "News" },
+    { nom: "LCI",               url: "https://dlstreams.top/watch.php?id=122", categorie: "News" },
+    { nom: "Sky News",          url: "https://dlstreams.top/watch.php?id=123", categorie: "News" },
+    { nom: "Euronews",          url: "https://dlstreams.top/watch.php?id=124", categorie: "News" },
+  ];
+
+  /* ─────────────────────────────────────────────
+     2. CONFIGURATION VISUELLE PAR CATÉGORIE
+     icon: emoji affiché sur la card
+     color: couleur du badge de catégorie
+  ───────────────────────────────────────────── */
+  const catConfig = {
+    "Toutes":  { icon: "📡", color: "#ff6a00" },
+    "USA":     { icon: "🇺🇸", color: "#3b82f6" },
+    "Sport":   { icon: "⚽", color: "#22c55e" },
+    "Europe":  { icon: "🌍", color: "#8b5cf6" },
+    "Afrique": { icon: "🌅", color: "#f59e0b" },
+    "Cinéma":  { icon: "🎬", color: "#ec4899" },
+    "Kids":    { icon: "🌈", color: "#06b6d4" },
+    "News":    { icon: "📰", color: "#ef4444" },
+  };
+
+  /* ─────────────────────────────────────────────
+     3. ÉTAT DE L'APPLICATION
+  ───────────────────────────────────────────── */
+  let activeCategory = "Toutes";
+  let searchQuery    = "";
+
+  /* ─────────────────────────────────────────────
+     4. CONSTRUIRE LES FILTRES DYNAMIQUEMENT
+  ───────────────────────────────────────────── */
+  function buildFilters() {
+    const categories = ["Toutes", ...new Set(chaines.map(c => c.categorie))];
+    const filtersEl  = document.getElementById("filters");
+
+    categories.forEach(cat => {
+      const btn = document.createElement("button");
+      btn.className  = "filter-btn" + (cat === "Toutes" ? " active" : "");
+      btn.textContent = (catConfig[cat]?.icon || "📺") + " " + cat;
+      btn.dataset.cat = cat;
+
+      btn.addEventListener("click", () => {
+        activeCategory = cat;
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        render();
+      });
+
+      filtersEl.appendChild(btn);
+    });
+  }
+
+  /* ─────────────────────────────────────────────
+     5. FILTRER LES CHAÎNES
+  ───────────────────────────────────────────── */
+  function getFiltered() {
+    return chaines.filter(c => {
+      const matchCat    = activeCategory === "Toutes" || c.categorie === activeCategory;
+      const matchSearch = c.nom.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCat && matchSearch;
+    });
+  }
+
+  /* ─────────────────────────────────────────────
+     6. CRÉER UNE CARD HTML
+  ───────────────────────────────────────────── */
+  function createCard(chaine) {
+    const cfg   = catConfig[chaine.categorie] || { icon: "📺", color: "#ff6a00" };
+    const card  = document.createElement("div");
+    card.className = "card";
+
+    card.innerHTML = `
+      <!-- Thumbnail / visuel -->
+      <div class="card-thumb">
+        <div class="card-thumb-icon">${cfg.icon}</div>
+        <span class="cat-badge" style="background:${cfg.color}">${chaine.categorie}</span>
+        <span class="live-dot">LIVE</span>
+      </div>
+      <!-- Contenu de la card -->
+      <div class="card-body">
+        <div class="card-name" title="${chaine.nom}">${chaine.nom}</div>
+        <div class="card-actions">
+          <button class="btn-watch">
+            <!-- Play icon -->
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
+            Regarder
+          </button>
+          <button class="btn-copy" data-url="${chaine.url}">
+            <!-- Copy icon -->
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copier
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Clic sur "Regarder" → ouvre le lien dans un nouvel onglet
+    card.querySelector(".btn-watch").addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.open(chaine.url, "_blank", "noopener,noreferrer");
+    });
+
+    // Clic sur la card (hors boutons) → idem
+    card.addEventListener("click", () => {
+      window.open(chaine.url, "_blank", "noopener,noreferrer");
+    });
+
+    // Clic sur "Copier"
+    card.querySelector(".btn-copy").addEventListener("click", (e) => {
+      e.stopPropagation();
+      copyToClipboard(chaine.url, e.currentTarget);
+    });
+
+    return card;
+  }
+
+  /* ─────────────────────────────────────────────
+     7. RENDU PRINCIPAL
+  ───────────────────────────────────────────── */
+  function render() {
+    const filtered  = getFiltered();
+    const grid      = document.getElementById("grid");
+    const empty     = document.getElementById("emptyState");
+    const countNum  = document.getElementById("countNum");
+
+    // Vider la grille
+    grid.innerHTML = "";
+
+    if (filtered.length === 0) {
+      empty.classList.add("visible");
+      document.getElementById("emptyQuery").textContent = searchQuery || activeCategory;
+    } else {
+      empty.classList.remove("visible");
+    }
+
+    // Créer les cards avec un léger délai d'animation échelonnée
+    filtered.forEach((chaine, i) => {
+      const card = createCard(chaine);
+      card.style.animationDelay = `${Math.min(i * 30, 400)}ms`;
+      grid.appendChild(card);
+    });
+
+    // Mettre à jour le compteur
+    countNum.textContent = filtered.length;
+  }
+
+  /* ─────────────────────────────────────────────
+     8. COPIER LE LIEN DANS LE PRESSE-PAPIERS
+  ───────────────────────────────────────────── */
+  function copyToClipboard(url, btn) {
+    navigator.clipboard.writeText(url).then(() => {
+      // Feedback visuel sur le bouton
+      const original = btn.innerHTML;
+      btn.classList.add("copied");
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copié !`;
+
+      setTimeout(() => {
+        btn.classList.remove("copied");
+        btn.innerHTML = original;
+      }, 2000);
+
+      // Toast global
+      showToast("✓ Lien copié dans le presse-papiers !");
+    }).catch(() => {
+      showToast("⚠ Impossible de copier le lien");
+    });
+  }
+
+  /* ─────────────────────────────────────────────
+     9. TOAST NOTIFICATION
+  ───────────────────────────────────────────── */
+  let toastTimer;
+  function showToast(msg) {
+    const toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2500);
+  }
+
+  /* ─────────────────────────────────────────────
+     10. ÉVÉNEMENTS
+  ───────────────────────────────────────────── */
+  document.getElementById("searchInput").addEventListener("input", (e) => {
+    searchQuery = e.target.value.trim();
+    render();
+  });
+
+  /* ─────────────────────────────────────────────
+     11. INITIALISATION
+  ───────────────────────────────────────────── */
+  buildFilters();
+  render();
+</script>
+</body>
+</html>
